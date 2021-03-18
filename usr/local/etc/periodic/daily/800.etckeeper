@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -eu
+
+# from https://gist.githubusercontent.com/kenjiskywalker/4372273/raw/11af3f5ca1f05b803a2828a8b3eb2f2a288c2311/etckeeper
+
+check_clean() {
+    cd "$1"
+    git_diff=$( git diff | head -n1 | cut -d " " -f 1 )
+    [ -n "$git_diff" ] && return 0
+}
+
+
+commit_if_enabled() {
+    cd "$1"
+    # config ist noch in /etc anstatt /usr/local/etc
+    if [ -x /usr/bin/etckeeper ] && [ -e /etc/etckeeper/etckeeper.conf ]; then
+        . /etc/etckeeper/etckeeper.conf
+        if [ "$AVOID_DAILY_AUTOCOMMITS" != "1" ]; then
+            # avoid autocommit if an install run is in progress
+            # TODO: Verify path
+            lockfile=/var/cache/etckeeper/packagelist.pre-install
+            # TODO: Shellcheck warning: where is $pe coming from?
+            #if [ -e "$pe" ] && [ -n "$(find "$lockfile" -mtime +1)" ]; then
+            #    rm -f "$lockfile" # stale
+            #fi
+            # TODO un-nest control flow
+            if [ ! -e "$lockfile" ]; then
+                AVOID_SPECIAL_FILE_WARNING=1
+                export AVOID_SPECIAL_FILE_WARNING
+                if etckeeper unclean; then
+                    etckeeper commit "daily autocommit" >/dev/null
+                fi
+            fi
+        fi
+    fi
+}
+
+
+main() {
+    for _confdir in /etc /usr/local/etc ; do
+        check_clean ${_confdir} &&
+        commit_if_enabled ${_confdir}
+    done
+}
+
+main
