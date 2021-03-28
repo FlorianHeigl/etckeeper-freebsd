@@ -12,5 +12,6 @@ as for VCS, I tested with git.
 
 ## dependencies
 
+* git-lite
 * GNU sed
 * GNU findutils
